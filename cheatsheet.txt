@@ -1,0 +1,1484 @@
+****VSPIRIT******
+Step 1
+------------
+Panini Build
+jam -j32 -l -d2 -sXROS=linux -sOPTIM_DISABLE=y -sPROCNTO_SPIRIT=y -sSPIRIT_BUILD=1 ncs6k-full-x.iso pdl | & tee jampanini.log
+/router/bin/jam  -sPROCNTO_SPIRIT=y -sOPTIM_DISABLE=y ncs6k-mpls.pkg ncs6k-mcast.pkg ncs6k-mgbl.pkg ncs6k-mini-x.iso
+Calvados build
+	 all -j32 |& tee all.log
+/auto/cats3/build_vspirit/183/patch_calvados.sh |& tee iso.log
+ 
+router restart panini
+ 
+/opt/cisco/calvados/bin/onhost /opt/cisco/calvados/sbin/reimage_chassis
+LC console access from calvados rp1
+chvrf 0 /opt/cisco/calvados/sbin/rconsole -l 0/7
+ 
+Step 2
+------------
+Installing Panini or calvados to vspirit
+1. ssh -X ott-pd-vs-002
+2. create /nobackup/<user-id>/panini
+3. cd /nobackup/<user-id>/panini
+4. source /auto/edatools/oicad/tools/vxr_user/vxr_3646/setup.csh <--source this file only once instead of vxr_3646 you can use vxr_latest
+5. sim clean
+6. sim panini-rplc or sim panini-rplc-pita <--- it will generate the sim-config.xml file for the simualtion this file contains router info and image location
+7. copy the image to ucs machine using scp
+scp wmamun@ott-lb-013:/nobackup/wmamun/r50-bugfix/img-panini/panini-full-x.iso .
+8. update the sim-config.xml . search for Cdrom and update image location.
+9. sim --vda
+10. When the sim is up login
+11. user : root, Pass: lab
+12. execute the command init 0 on both rp lc console
+13. sim
+14. when the sim window appears login
+15. virsh list <--- to check if xr vm is up or not
+Id Name                 State
+----------------------------------
+  1 calvados             running
+  2 default-sdr--1       running <--------xr vm up
+16. after login to go to xr vm use : telnet 10.0.2.15 9001 for calvados use: telnet 10.0.2.15 50000
+ 
+ 
+ 
+****GDB*****
+Attaching to a running process
+ 
+1. run
+2. mkdir -p walee
+3. sshfs wmamun@ott-lb-013.cisco.com:/workspace2/wmamun/cal-commit-CSCuf94855 /walee <--mounting the ws
+4. cd walee
+5. ps -ef | grep slice_manager_panini
+6. ./os-infra-sdk/x86_64/usr/bin/xrng_gdb -p calvados/panini_pkg/system/drivers/bao/bin-x86_64/slice_manager_panini
+7. attach <pid>
+8. we can use: "shell ps ax | grep ael_mgbl" for getting the pid
+Core file debug
+ 
+1. Go to ws root.
+2. For XR: xrng_gdb -p <PATH to Process Symbol File> -r <WORKSPACE ROOT> -c <PATH TO CORE FILE>
+3. For calvados: xrng_gdb -p <PATH TO PROCESS BINARY in WS> -r <WS ROOT> -c <PATH TO CORE FILE>
+Example
+For calvados ./os-infra-sdk/x86_64/usr/bin/xrng_gdb -p calvados/panini_pkg/system/drivers/zen/bin-x86_64/zen -c /tftpboot/wmamun/cai-core/zen-core-rp1-11-20130501-may1
+      -p <prog_name> :  program you wish to debug
+      -c             : Path to core file
+ 
+ 
+                 
+Core file location on the router sim :  cd /misc/scratch/core
+ 
+**adding shared lib
+  info sharedlib
+  add-symbol-file <path to the shared lib> start_address
+ 
+ 
+**disassemble a line of code
+info line 1042
+disassemble 0x7f0096883dcb,0x7f0096883de1
+ 
+for example
+ 
+(gdb) frame 4
+#4  0x00007f0096883de1 in asic_errors_write_log_file (root=0x25cc430, asic_en=6,
+    tagstr=0x7fff16eebf70 "Instance 0", fp=0x28a8550)
+    at calvados/shared_pkg/common/cai/asic_errors/lib/src/asic_errors_logging.c:1042
+1042        struct cidl_error_collection             soft_errs_generic = {};
+(gdb) info line 1042
+Line 1042 of "calvados/shared_pkg/common/cai/asic_errors/lib/src/asic_errors_logging.c"
+   starts at address 0x7f0096883dcb <asic_errors_write_log_file+38>
+   and ends at 0x7f0096883de1 <asic_errors_write_log_file+60>.
+(gdb) disassemble 0x7f0096883dcb 0x7f0096883de1
+A syntax error in expression, near `0x7f0096883de1'.
+(gdb) disassemble 0x7f0096883dcb,0x7f0096883de1
+Dump of assembler code from 0x7f0096883dcb to 0x7f0096883de1:
+   0x00007f0096883dcb <asic_errors_write_log_file+38>:  lea    -0x290(%rbp),%rdi
+  0x00007f0096883dd2 <asic_errors_write_log_file+45>:  mov    $0x98,%edx
+   0x00007f0096883dd7 <asic_errors_write_log_file+50>:  mov    $0x0,%esi
+   0x00007f0096883ddc <asic_errors_write_log_file+55>:  callq  0x7f009686bc60 <memset@plt>
+End of assembler dump.
+(gdb) 
+  
+  
+**********************      
+Calvados smoke test:
+**********************
+ 
+/auto/calvados/tools/build_panini_r50x_bugfix.sh /nobackup/musakhan/r50x-smoke /nobackup/musakhan/calvados-bugfix-cih/
+ 
+on vspirit:
+/auto/calvados/tools/smoke_latest.py -S . -w ott-lb-018:/nobackup/musakhan/r50x-smoke
+ 
+or
+ 
+/auto/calvados/tools/smoke_latest.py -S . -p --vxr-release=4005 -w ott-lb-013:/workspace2/wmamun/r50smoke
+ 
+****************
+some handy cheat
+****************
+ 
+Connecting to the aux in calvados(in sim, may work in actual router): ssh -p 50003 localhost
+Find a text in File: find . -name '*.[ch]' -print | xargs grep -H 'main'
+Falafel interrupt info :  find calvados/ -name '*falafel*intr_gen.c'
+ 
+ 
+calvados trace decode
+***********************
+ 
+ 
+use this command to decode on the router 4:29 PM
+/opt/cisco/calvados/bin/ctracedec -ktg <trace file>
+"/var/log/ctrace/asic_errors" is the location
+ 
+ 
+******************************
+ANTARES BUILD and COMPLIE
+******************************
+ 
+1. Build : jam -sPROCNTO_SPIRIT=y -d2 -j8 -l panini-antares-mini-x.iso
+or
+   jam -sPROCNTO_SPIRIT=y -d2 -j8 -l ncs6k-antares-mini-x.iso
+   jam -sPROCNTO_SPIRIT=y -d2 -j8 -l scapa-antares-mini-x.iso
+or
+Full image:
+   jam -j32 -d2 -sXROS=linux -sOPTIM_DISABLE=y -sPROCNTO_SPIRIT=y -sSPIRIT_BUILD=1 ncs6k-antares-full-x.iso pdl
+or
+componente build
+                jam -sPROCNTO_SPIRIT=y -j32 -l -plat ncs6k platforms/common/sse-gen2/rm/trm/pie &
+2. compile : ~ansli/bin/xrcompile platforms/common/sse-gen2/rm/trm/lib/src/trm_ltrace.c
+ 
+*******************************
+Workspace mounting
+*******************************
+ 1. mount your wsp from host
+  sshfs wmamun@ott-lb-013.cisco.com:/workspace2/wmamun/ /ws
+2. get ip eth2 usin ifconfig on host
+ eth2      Link encap:Ethernet  HWaddr 52:46:0A:00:00:11
+          inet addr:10.0.2.2
+3. from your xr card mount the host worksapce
+sshfs root@10.0.2.2:/ws /wm
+*******************************************
+GDB in flat model , running a xtf from gdb
+******************************************* 
+ 
+copy gdb into router's /usr/bin/
+copy .gdbinit ~/ <----not needed that much
+gdb --args /pkg/bin/trm_client_xtf -D debug=0:all=1 all
+symbol-file <file_location>
+b main
+info shared-lib
+add symbol-file <file_loc use the so.sym ffor libs > <from_address>
+ 
+ 
+ 
+*************************
+visual diff
+*************************
+acme diff -comp platforms/common/sse-gen2/rm/trm -cmd /ws/ddukes-ott/slickedit/bin/vsdiff
+ 
+*************************
+mounting your workspace in scapa
+*************************
+vi /bin/envoke
+change WSHOST="10.85.85.100" <actual ip address of ott-lb-013>
+under /workspace -your workspace will be mounted.
+finally execute "source envoke"
+ 
+ 
+***********************************
+To check valid antares_attribute.c
+***********************************
+search for this ustruct_le
+ 
+*******************
+build scapa-antares
+*******************
+pie : jam -sPROCNTO_SPIRIT=y -j8 -l -plat scapa pie
+mini: jam -j16 -l -sOPTIM_DISABLE=y -sPROCNTO_SPIRIT=y scapa-antares-mini-x.iso &
+jam -j32 -l -sOPTIM_DISABLE=y -sPROCNTO_SPIRIT=y ncs6k-mini-x.iso &
+jam -sPROCNTO_SPIRIT=y -j16 -l -plat xrv9k platfor/nodeid/pie
+*****************
+scapa flat model
+*****************
+0.  source /auto/edatools/oicad/tools/vxr_user/vxr_4505/setup.csh
+1.  sim clean
+2.  scp wmamun@ott-lb-013:/workspace2/wmamun/antares-dev-dec8/img-scapa/scapa-antares-mini-x.iso .
+3.  sim --vda -t 0
+4.  sim -t 0
+5.  execute the grep to get port address
+    grep -i flat Platform-scapa-0/Shelf-lcc-0/RouteCard-scapa_rp-0/PortVector.txt
+               
+***********************
+trm_client_xtf
+***********************
+/pkg/bin/trm_client_xtf -D debug=0:all=1:tid=52:size=200 all
+ 
+/users/ddukes/bin/vxr-init-antares -d /nobackup/wmamun/simdir ott-pd-vs-016 -v 4454
+ 
+***********************
+Creating a Component
+***********************
+1.create a component carets http://wwwin-carets.cisco.com/carets2/login.do
+2.create a component on PIMS
+3. pull the workspace
+4. acme mw -src platforms/common/sse/feature/pbr@main/latest
+5. save the component code from comp-metadata.pl and use that code in to the ported comp-metadata.pl
+6. copy code to port
+ 
+************************
+Role definition of comp-mdata.pl
+************************
+platforms/panini/plat_mdata/scripts/role_mdata.pl
+ 
+************************
+Panini build
+************************
+1. smu build:  smu jam –ddts <some_fake_id> -plat ncs6k –noprompt
+   install add source tftp://223.255.254.254/tftpboot/wmamun/<image_dir>/<smu_name>.smu
+   smu location in workspace: .smu/deliverables
+  
+2. pie : jam -sPROCNTO_SPIRIT=y -j8 -l -plat ncs6k pie
+4. jam -j32 -l -sOPTIM_DISABLE=y -sPROCNTO_SPIRIT=y ncs6k-mini-x.iso &
+ 
+*************************
+power cycle
+*************************
+ 
+>Telnet 10.85.83.28
+> 
+>Conf term
+>Line 13 16
+>Mod dtr-a
+>No mod dtr-a
+******************* 
+Sunstone start up 
+******************* 
+alias jamssfull="jam -j32 -sPROCNTO_SPIRIT=y sunstone-full-x.iso >& jamlog"
+alias jamssmini="jam -j32 -sPROCNTO_SPIRIT=y sunstone-mini-x.iso >& jamlog"
+full or mini whichever u prefer
+you have to chose a pd server
+http://wikicentral.cisco.com/display/CRBU/HERO+SW+Ottawa+Build+Servers2:00 PM
+check this link
+put your name on the one u want to use
+on the pd server
+once you have done that then there are a few more steps
+create your directory under /nobackup
+and then the first this you do is following
+git clone /ws/alpesh-sjc/UVFlxcgit/
+git clone /auto/nsstg-tools-hard/bin/sunstone
+and transfer the sunstone image you built to this location
+and finally
+./UVFlxcgit/sunstone.sh -i sunstone-full-x.iso --gnome -net <yourname> -10g
+*********************************
+Sunstone gcp pi building command
+*********************************
+jam -sPROCNTO_SPIRIT=y -j16 -l gcp-li-sunstone-64.pie
+jam -sPROCNTO_SPIRIT=y -j16 -l sunstone-li-x.pkg
+Sunstone full image 
+jam -j32 -l -sPROCNTO_SPIRIT=y sunstone-full-x.iso &
+*************************
+Sunstone pi installation 
+*************************
+1. Goto work directory in pd-vs machine exmpl: wmamun-workdir
+2. go to host and run ifconfig eth2, get the ip address and use it in step 3
+3. Run from work directory : /auto/ng_ott_auto/tools/ng_scripts/do_pam_setup.pl -s . -X 192.168.122.<addr>
+4. workspace will be mounted in both host and xr 
+
+libgcp_feature_ea_dll
+*************
+Sunstone b2b
+*************
+./sunstone.sh -i ../sunstone-full-x.iso -topo ../b2b.topo -net tb1 -node slot4 -mrxvt -dev -b ../gslot4.txt -r 
+/nobackup/wmamun/slot4
+./sunstone.sh -i ../sunstone-full-x.iso -topo ../b2b.topo -net tb1 -node slot3 -mrxvt -dev -b ../gslot3.txt -r 
+Fix code format
+ style_code.pl -u -f ../../../gcplane/feature/li_ea/src/*.c ../../../gcplane/feature/li_ea/src/*.h
+**************
+Sunstone VXR
+**************
+0. source /auto/edatools/oicad/tools/vxr2_user/Linux/vxr2_728/setup.sh
+1. use this link to generate the sim-cinfig.xml and follow the steps
+http://ott-pxe1/cgi-bin/sunstone.cgi
+2. to run vxr sim clean and sim -l  
+3. mount workspace : got to sunstone directory and run the following command
+/auto/ng_ott_auto/tools/ng_scripts/do_pam_setup.pl -s .
+PAM tool: /auto/ng_ott_auto/tools/ng_scripts/do_pam_setup.pl -s .  
+
+Mount the workspace from host first 
+ sshfs wmamun@ott-ads-147.cisco.com:/nobackup/wmamun/smu_r60x_6_0_1 /ws
+Then got to XR and run the following command
+Mount : sshfs /ws 10.0.2.16:/wm
+*************************
+*********   LI   ********
+*************************
+LI --- SUNSTONE SNMP setup
+snmp-server engineID local 00:00:00:09:00:00:00:a1:61:6c:20:56
+snmp-server host 10.64.81.109 traps version 3 priv encrypted 04570A04 udp-port 4444
+snmp-server host 123.100.102.18 traps version 3 priv encrypted 05180D1A2C4D5C1A0E udp-port 4444
+snmp-server host 223.255.254.249 traps public udp-port 8585
+snmp-server user user2 dhivya-snmp-group v3 auth md5 encrypted 082D4D4C priv des56 encrypted 04570A04
+snmp-server view dhivya-snmp-view snmp included
+snmp-server view dhivya-snmp-view ifMIB included
+snmp-server view dhivya-snmp-view system included
+snmp-server view dhivya-snmp-view 1.3.6.1.4.1.9.9.399 included
+snmp-server view dhivya-snmp-view 1.3.6.1.4.1.9.9.394 included
+snmp-server view dhivya-snmp-view 1.3.6.1.6.3.1.1.4.1 included
+snmp-server community public RW SystemOwner
+snmp-server group dhivya-snmp-group v3 auth notify dhivya-snmp-view read dhivya-snmp-view write dhivya-snmp-view
+snmp-server traps snmp
+snmp-server traps config
+ 
+ 
+setany -v3 5.1.7.235 user2 cTap2MediationDestAddressType.1 ipv4 cTap2MediationDestAddress.1 "46 1 1 2" cTap2MediationDestPort.1 "1234" cTap2MediationSrcInterface.1 0 cTap2MediationTransport.1 udp cTap2MediationNotificationEnable.1 true cTap2MediationTimeout.1 x 07db0b1212040000 cTap2MediationStatus.1 createAndGo
+cTap2MediationDestAddressType.1 = ipv4(1)
+cTap2MediationDestAddress.1 = 46 01  01 02  
+cTap2MediationDestPort.1 = 1234
+cTap2MediationSrcInterface.1 = 0
+cTap2MediationTransport.1 = udp(1)
+cTap2MediationNotificationEnable.1 = true(1)
+cTap2MediationTimeout.1 = 2014-Jun-20,03:04:05.6,-1:2
+cTap2MediationStatus.1 = createAndGo(4)
+
+setany -v3 5.1.7.235 user2 citapStreamInterface.1.1 0 citapStreamAddrType.1.1 ipv4 citapStreamSourceAddress.1.1 "5a 1 1 2" citapStreamSourceLength.1.1 32 citapStreamStatus.1.1 createAndGo
+ 
+LI set 
+run debug snmp/mib/userconnectiontapmib/enable=1
+run debug snmp/mib/tap2mib/enable=1
+run debug snmp/mib/iptapmib/enable=1
+run debug li/mgr/error=1
+run debug li/mgr/data=1
+run debug li/mgr//=1
+run debug li/mgr/info=1
+run debug li/mgr/stats=1
+run debug li/dll/data=1
+run debug li/dll/info=1
+run debug li/dll/trace=1
+run debug li/dll/stats=1
+run debug li/dll/error=1
+run debug li/msg/trace=1
+run debug li/msg/error=1
+ 
+run debug fea_dll/li_err=1
+run debug fea_dll/li_info=1
+run debug fea_dll/li_trace=1
+run debug fea_sub_dll/li_trace=1
+run debug fea_sub_dll/li_info=1
+ run debug fea_sub_dll/li_err=1
+ run debug li_ea/li_errors=1
+run debug li_ea/li_trace=1
+run debug li_ea/li_info=1
+ run debug pfilter_ea/errors=1
+run debug pfilter_ea/info=1 
+ run debug pfilter_ea/trace=1
+run debug li_ea/li_errors=1
+run debug li_ea/li_trace=1
+run debug li_ea/li_info=1
+ run debug fea_dll/vmr=1
+run debug fea_dll/resmgr=1
+run debug fea_dll/info=1 
+ run debug fea_dll/trace=1
+run debug fea_dll/chkpt=1
+run debug fea_dll/errors=1
+  789  rmmod ixgbe
+  790  lspci |grep Eth
+  791  modprobe ixgbe
+  792  lspci |grep Eth
+  793  /auto/rp_dt_panini/jiemiwan/sunstone/get_pci_eth_map.py
+
+***************
+PAM xrv9k
+***************
+windows vm /auto/rp_dt_panini/sunstone/IXIA/ixchassis-vxr-pool2-5ports
+ixia vm /auto/rp_dt_panini/sunstone/IXIA/ixvm-vxr-v4.img
+
+
+RPLC split
+
+RP: ../sunstone.sh -topo ../chassis.topo -node HA -boardtype RP -slot 0 -distributed -i ../xrv9k-full-x.iso
+
+LC: ../sunstone.sh  -node LC0 -boardtype LC -slot 0 -distributed -i ../xrv9k-full-x.iso -r -f
+Dual RP : ./sunstone.sh -topo chassis.topo -node HA2 -boardtype RP -slot 1 -distributed -i xrv9k-full-x.iso -r  -net wm
+./sunstone.sh -topo chassis.topo -node HA2 -boardtype RP -slot 1
+
+ -distributed -i xrv9k-full-x.iso -r  -net wm
+
+********************
+LI automation script 
+*********************
+LI script location: /auto/ng_ott_auto/production/sunstone/ena-tests/Platform-NG/sunstone/lawful_intercept
+/auto/ng_ott_auto/DEVELOPMENT_USERS/wmamun/tests/viking/gate/scripts/functional/lawful-intercept/suites
+to run script: autoeasy li-regression-trident-earmsi.job
+
+source ~/cnew_antares_ott
+
+SS_HA
+sunstone.sh :  /ws/therrien-ott/ss_ha/sunstone/sunstone.sh
+RP: ./sunstone.sh -topo ../chassis.topo -node HA -boardtype RP -slot 0 -distributed -i xrv9k-full-x.dev.iso -r
+LC: ./sunstone.sh  -node LC0 -boardtype LC -slot 0 -distributed -i xrv9k-full-x.dev.iso -r -f
+
+LC logging on HA
+*****************
+
+sh platform vm 
+run ssh <ipaddr> 
+******************
+BFD triage for spp
+******************
+spp_ui
+trace start
+trace print
+bfs fixed port is 0ec8
+Packet serial 21
+socket/tx: <- inject to code. if there is classify instead of tx then it means punt to cpu
+  length 140 phys_int_index -1 next_ctx 0xdeadbeef time 15:28:38.118
+  00: 15 00 00 00 ed 00 bc 0f 80 00 00 00 00 00 00 00 <- last 4 byte is nodded for HA
+  10: 00 00 00 00 74 00 00 00 8c 0f 00 00 00 00 00 00
+  20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  30: 04 0d 00 01 00 00 00 00 00 00 00 00 42 00 00 00
+  40: 00 00 10 00 00 08 00 00 00 00 52 46 ec 38 14 02
+  50: 52 46 65 57 03 7e 08 00 45 c0 00 34 00 00 00 00 <- 45 denotes the start of ipv4 pkt
+  60: ff 11 a6 f6 0a 00 00 01 0a 00 00 02 c0 00 0e c8 <— 0ec8 bfd port 
+  70: 00 20 00 00 20 88 03 18 82 00 00 01 82 00 00 01
+  80: 00 1e 84 80 00 1e 84 80 00 00 03 e8 ab cd ab cd
+  90: ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd
+  a0: ab cd ab cd 00 00 00 00 00 00 00 00 00 00 00 00
+  b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0
+
+Ping packet sample compared to above BFD packet
+Packet serial 17
+socket/tx:
+  length 174 phys_int_index 0 next_ctx 0xdeadbeef time 15:28:35.059
+  00: 15 00 00 00 0a 00 58 0f a2 00 00 00 ac 00 10 01 <— node id set in last 4 byte
+  10: 00 00 00 00 96 00 00 00 0c 0f 00 00 00 00 00 00
+  20: 00 00 c2 4c 8c dd 00 00 00 00 00 00 00 00 00 00
+  30: 03 09 00 01 00 00 00 00 00 00 00 00 64 00 00 00
+  40: 00 00 10 00 00 08 00 00 00 00 45 00 00 64 00 04 <- 45 for ipv4
+  50: 00 00 ff 01 a7 92 0a 00 00 01 0a 00 00 02 00 00 <- 0ec8 port is not set so its ping
+  60: a1 66 35 a9 00 04 ab cd ab cd ab cd ab cd ab cd
+  70: ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd
+  80: ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd
+  90: ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd
+  a0: ab cd ab cd ab cd ab cd ab cd ab cd ab cd 00 00
+  b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+
+BFD config:
+***********
+router ospf 100
+ area 0
+  interface TenGigE0/0/0/0
+   bfd minimum-interval 2000
+   bfd fast-detect
+  !
+ !
+!
+
+
+TCP DUMP :
+
+
+tcpdump -i eth-vf1 -c 10 -nnvvvXXSes 1500
+dpa_dpa socket
+ethtool -i eth-vf1
+eth-vf1.3073
+
+Bypass e1000
+-host-nic-type vport-host -data-nic-type vport-host
+
+
+XR COMMIT
+/auto/iox/bin/xr_commit -d CSCuy40768 -cloud
+
+Sanity
+
+/auto/neat-hard/pub/install/sunstone-rg-lnx/cli/sunstone-rg-lnx execute --user wmamun --suite xrv9k_sanity_pd_sunstone_flex_xr --title "xrv9k sanity" --testimagefile "/auto/tftpboot-ottawa/wmamun/images/xrv9k-full-x.iso" --branch “r61x” --bugid "no bug
+
+
+
+Commit Voddoo:
+turn of sa 
+env PIMS_DISABLE_CSTATIC_TRIG=1 acme commit
+bypass copyright
+env ACME_DISABLE_COPYRIGHT=1 acme precommit
+
+bypass ISSU: ISSU_ANALYSIS_DISABLE=1
+bypass enidain: ENDIAN_ANALYSIS_DISABLE=1
+bypass api checker 
+ACME_DISABLE_TRIGS=api_checker
+bypass UT
+ADD_UT_ENCL_DISABLE=1
+
+
+Attach to a process to see what the threads are doing : attach_process -p 3260 -i 1
+
+
+kjkm
+
+
+************************************
+GRE SETUP
+************************************
+ 
+1) Setup - Launch three Sunstones in Centralized mode, connected back to back
+ 
+/ws/therrien-ott/ss_ha/sunstone/sunstone.sh -node 1 -r -i myimage
+/ws/therrien-ott/ss_ha/sunstone/sunstone.sh -node 2 -r -i myimage
+/ws/therrien-ott/ss_ha/sunstone/sunstone.sh -node 3 -r -i myimage
+ 
+   Note that more Sunstone instances can be launched (use a different node number), even add 6.1.1 version.
+ 
+ 
+2) Configuration
+ 
+R1
+ 
+conf t
+ 
+logging console debugging
+line console exec-timeout 0 0
+ 
+interface Loopback1
+ no shut
+ ipv4 address 1.1.1.1 255.255.255.255
+ 
+interface tunnel-ip1
+ 
+interface tunnel-ip12
+ ipv4 address 62.62.62.1 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 2.2.2.2
+ 
+interface tunnel-ip13
+ ipv4 address 63.63.63.1 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 3.3.3.3
+ 
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+ 
+interface GigabitEthernet0/0/0/0
+ ipv4 address 12.12.12.1 255.255.255.0
+ no shutdown
+ 
+interface GigabitEthernet0/0/0/1
+ ipv4 address 13.13.13.1 255.255.255.0
+ no shutdown
+ 
+interface GigabitEthernet0/0/0/2
+ shutdown
+ 
+router static
+ address-family ipv4 unicast
+  2.2.2.2/32 12.12.12.2
+  3.3.3.3/32 13.13.13.3
+ 
+commit
+end
+ 
+ 
+R2
+ 
+conf t
+ 
+logging console debugging
+line console exec-timeout 0 0
+ 
+interface Loopback1
+ no shut
+ ipv4 address 2.2.2.2 255.255.255.255
+ 
+interface tunnel-ip1
+ 
+interface tunnel-ip21
+ ipv4 address 62.62.62.2 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 1.1.1.1
+ 
+interface tunnel-ip23
+ ipv4 address 73.73.73.2 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 3.3.3.3
+ 
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+ 
+interface GigabitEthernet0/0/0/0
+ ipv4 address 12.12.12.2 255.255.255.0
+ no shutdown
+ 
+interface GigabitEthernet0/0/0/1
+ shutdown
+ 
+interface GigabitEthernet0/0/0/2
+ ipv4 address 23.23.23.2 255.255.255.0
+ no shutdown
+ 
+router static
+ address-family ipv4 unicast
+  1.1.1.1/32 12.12.12.1
+  3.3.3.3/32 23.23.23.3
+ 
+commit
+end
+ 
+ 
+ 
+ 
+ 
+R3
+ 
+conf t
+ 
+logging console debugging
+line console exec-timeout 0 0
+ 
+interface Loopback1
+ no shut
+ ipv4 address 3.3.3.3 255.255.255.255
+ 
+interface tunnel-ip1
+ 
+interface tunnel-ip31
+ ipv4 address 63.63.63.3 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 1.1.1.1
+ 
+interface tunnel-ip32
+ ipv4 address 73.73.73.3 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback1
+ tunnel destination 2.2.2.2
+ 
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+ 
+interface GigabitEthernet0/0/0/0
+ shutdown
+ 
+interface GigabitEthernet0/0/0/1
+ ipv4 address 13.13.13.3 255.255.255.0
+ no shutdown
+ 
+interface GigabitEthernet0/0/0/2
+ ipv4 address 23.23.23.3 255.255.255.0
+ no shutdown
+ 
+router static
+ address-family ipv4 unicast
+  1.1.1.1/32 13.13.13.1
+  2.2.2.2/32 23.23.23.2
+ 
+commit
+end
+ 
+ 
+ 
+Debug Commands
+ 
+debug tunnel ip netio all loc 0/0/cpu0
+debug netio driver loc 0/0/cpu0
+debug cef packet loc 0/0/cpu0
+ 
+debug tunnel ip netio all loc 0/rp0/cpu0
+debug netio driver loc 0/rp0/cpu0
+debug cef packet level 2 process netio loc 0/rp0/cpu0
+debug ipv4 packet loc 0/rp0/cpu0
+debug aib client packet loc 0/rp0/cpu0
+debug aib client error loc 0/rp0/cpu0
+debug aib client event loc 0/rp0/cpu0
+debug aib client api loc 0/rp0/cpu0
+debug aib client api-error loc 0/rp0/cpu0
+ 
+ 
+debug tunnel ip netio all loc 0/0/cpu0
+debug netio driver loc 0/0/cpu0
+debug cef packet level 2 process netio loc 0/0/cpu0
+debug ipv4 packet loc 0/0/cpu0
+debug aib client packet loc 0/0/cpu0
+debug aib client error loc 0/0/cpu0
+debug aib client event loc 0/0/cpu0
+debug aib client api loc 0/0/cpu0
+debug aib client api-error loc 0/0/cpu0
+ 
+ 
+show netio forward sta
+ 
+ 
+ 
+GRE Test Tool tunnel/gre/test
+ 
+1) bring up tunl_gre_ma by configuring a static GRE tunnel
+ 
+2) start the test client deamon "run test_dyntunl -C &” from XR console
+   -C option indicates to this deamon that it should create a thread to serve the CLI test input from test_dyn_tunl_cmd.
+ 
+Note that the GRE Tunnel Test Tool consists of three parts
+1.  The test CLI defined dynTunl_test.cmd: the parser of this .cmd enables the following test commands “test tunnel-ip [options]”
+2.  The .cmd file specifies that the inputs from the CLI are to be handled by test_dyn_tunl_cmd. test_dyn_tunl_cmd subsequently formulates the CLI inputs as message and send the msg to the test deamon test_dyntunl.
+3.  The test_dyntunl receives the msg generated from the CLI inputs, and sends the tunnel/endpoint operations (create/delete/update) to the GRE MA via the dynamic tunnel DLL libtunlIpApi_dynTunl implemented in tunnel/gre/lib/dynamic_tunnel.
+These three parts together simulates a dynamic tunnel user/client such as pmipv6.
+ 
+Steps to follow
+1.  From XR console, "run test_dyntunl -C &", note log file is in /misc/scratch/test_dyntunl.log
+2.  Create tunnel creation file /mgre_create.txt which contains line like this "Tunl-id 0 Mode mgre-v4 Src 1.1.1.1”
+3.  From XR console, "test tunnel-ip bulk tunnels /mgre_create.txt create”. Result is recorded in /mgre_create_result.txt.
+4.  “show interface tunnel-ip *” to check the tunnels. Note that the dynamically created tunnels starts with tunnel id 65536 and onwards.
+5.   
+R1
+ 
+vi mgre_create.txt
+ 
+Tunl-id 0 Mode mgre-v4 Src 1.1.1.1 Tunl-Intf-Addr 112.112.112.1
+ 
+vi ep_create.txt
+65536 112.112.112.2 2.2.2.2 v4
+65536 112.112.112.3 3.3.3.3 v4
+ 
+R2
+ 
+vi mgre_create.txt
+Tunl-id 0 Mode mgre-v4 Src 2.2.2.2 Tunl-Intf-Addr 112.112.112.2
+ 
+vi ep_create.txt
+ 
+65536 112.112.112.1 1.1.1.1 v4
+65536 112.112.112.3 3.3.3.3 v4
+ 
+R3
+ 
+vi mgre_create.txt
+Tunl-id 0 Mode mgre-v4 Src 3.3.3.3 Tunl-Intf-Addr 112.112.112.3
+ 
+vi ep_create.txt
+ 
+65536 112.112.112.1 1.1.1.1 v4
+65536 112.112.112.2 2.2.2.2 v4
+ 
+ 
+Simple test
+ 
+configure a static tunnel to start ma
+ 
+run test_dyntunl -C &
+ 
+test tunnel-ip bulk tunnels /mgre_create.txt create
+ 
+test tunnel-ip bulk endpoints /ep_create.txt add-one-by-one
+ 
+ 
+ 
+Scale test
+ 
+configure a static tunnel to start ma
+ 
+run test_dyntunl -C &
+ 
+test tunnel-ip bulk tunnels /ws/mgre_create.txt create
+ 
+test tunnel-ip bulk endpoints /ws/ep_create.txt add-one-by-one
+ 
+ 
+ 
+ 
+conf t
+  
+interface tunnel-ip1
+ 
+commit
+ 
+interface tunnel-ip2
+interface tunnel-ip3
+interface tunnel-ip4
+interface tunnel-ip5
+interface tunnel-ip6
+interface tunnel-ip7
+interface tunnel-ip8
+interface tunnel-ip9
+interface tunnel-ip10
+interface tunnel-ip11
+interface tunnel-ip12
+interface tunnel-ip13
+interface tunnel-ip14
+interface tunnel-ip15
+interface tunnel-ip16
+ 
+commit
+ 
+no interface tunnel-ip1
+commit
+ 
+interface tunnel-ip1
+commit
+
+*********************************
+Slow path : punt/inject commands 
+*********************************
+
+  sh spp sid stats location 0/0/CPU0
+  sh spp sid stats location 0/ro0/CPU0
+  sh spp sid stats location 0/rp0/CPU0
+  sh fwd statistics all det loc 0/0/CPU0
+  sh fwd statistics all det loc 0/rp0/CPU0
+
+******************************
+OSPF config
+******************************
+Router 2
+*******************
+
+!! IOS XR Configuration version = 6.2.1.27I
+!! Last configuration change at Thu Jan 26 16:32:04 2017 by root
+!
+conf
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$h4Cl$1Rzofsap8QdnktOEXUgLJ.
+!
+interface Loopback0
+ ipv4 address 2.2.2.2 255.255.255.0
+ no shut
+!
+interface Loopback2
+ ipv4 address 4.4.4.4 255.255.255.255
+ no shut
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.0.0.2 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 12.0.0.1 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 2.2.2.2
+ mtu-ignore enable
+ maximum paths 32
+ redistribute connected
+ area 0
+  interface Loopback0
+  !
+  interface GigabitEthernet0/0/0/0
+   neighbor 11.0.0.1
+   mtu-ignore enable
+  !
+ !
+!
+
+commit
+end
+
+
+Router 1
+*********
+
+!! IOS XR Configuration version = 6.2.1.27I
+!! Last configuration change at Thu Jan 26 16:31:44 2017 by root
+!
+conf
+
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$WigY$pqPQC.93QAYEirQ0sGWLh.
+!
+interface Loopback0
+ ipv4 address 1.1.1.1 255.255.255.0
+ no shut
+!
+interface Loopback2
+ ipv4 address 3.3.3.3 255.255.255.0
+ no shut 
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.0.0.1 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 11.0.0.1 255.255.255.0
+  no shut 
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 1.1.1.1
+ mtu-ignore enable
+ maximum paths 32
+ nsf cisco
+ redistribute connected
+ area 0
+  interface Loopback0
+   mtu-ignore enable
+  !
+  interface GigabitEthernet0/0/0/0
+   mtu-ignore enable
+  !
+ !
+!
+commit
+
+end
+
+Router 3 
+*********
+
+!! IOS XR Configuration version = 6.2.1.27I
+!! Last configuration change at Thu Jan 26 16:47:38 2017 by root
+!
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$PHiy$5IJ7VFtdeJZzsHYG5Nmj41
+!
+interface Loopback0
+ ipv4 address 3.3.3.3 255.255.255.0
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 12.0.0.2 255.255.255.0
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 3.3.3.3
+ mtu-ignore enable
+ maximum paths 32
+ nsf cisco
+ redistribute connected
+ area 0
+  interface Loopback0
+   mtu-ignore enable
+  !
+  interface GigabitEthernet0/0/0/0
+   mtu-ignore enable
+  !
+  interface GigabitEthernet0/0/0/1
+   mtu-ignore enable
+  !
+ !
+!
+end
+
+
+************************
+OSPF and gre 
+************************
+ R1 
+
+conf
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$WigY$pqPQC.93QAYEirQ0sGWLh.
+!
+
+interface Loopback0
+ ipv4 address 1.1.1.1 255.255.255.0
+ no shut
+!
+interface Loopback2
+ ipv4 address 3.3.3.3 255.255.255.0
+ no shut 
+!
+interface tunnel-ip12
+ ipv4 address 100.100.100.1 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel destination 4.4.4.4
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.10.10.1 255.255.255.0
+ no shut 
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 11.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 1.1.1.1
+ mtu-ignore enable
+ maximum paths 32
+ nsf cisco
+ redistribute connected
+ area 0
+  interface Loopback0
+   mtu-ignore enable
+  !
+  interface GigabitEthernet0/0/0/0
+   mtu-ignore enable
+  !
+ !
+!
+commit 
+end
+
+
+
+R2
+conf
+
+logging console disable
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$h4Cl$1Rzofsap8QdnktOEXUgLJ.
+!
+
+interface Loopback0
+ ipv4 address 2.2.2.2 255.255.255.0
+ no shut
+!
+interface Loopback2
+ ipv4 address 4.4.4.4 255.255.255.255
+ no shut
+!
+interface tunnel-ip21
+ ipv4 address 100.100.100.2 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel destination 3.3.3.3
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.10.10.2 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 12.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 2.2.2.2
+ mtu-ignore enable
+ dead-interval 240
+ maximum paths 32
+ redistribute connected
+ area 0
+  interface Loopback0
+  !
+  interface GigabitEthernet0/0/0/0
+
+   mtu-ignore enable
+
+  !
+ !
+!
+commit 
+end
+
+
+*********************
+GRE tunnnel vrf
+*********************
+R1
+
+
+conf
+
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$WigY$pqPQC.93QAYEirQ0sGWLh.
+!
+arp vrf default 10.10.10.2 5246.ac33.3488 ARPA
+interface Loopback0
+ ipv4 address 1.1.1.1 255.255.255.0
+ no shut
+!
+interface Loopback2
+ vrf v2
+ ipv4 address 3.3.3.3 255.255.255.0
+ no shut
+!
+interface tunnel-ip12
+ vrf v1
+ ipv4 address 100.100.100.1 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel vrf v2
+ tunnel destination 4.4.4.4
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ vrf v2
+ ipv4 address 10.10.10.1 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 11.0.0.1 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router static
+ vrf v2
+  address-family ipv4 unicast
+   4.4.4.4/32 10.10.10.2
+  !
+ !
+!
+router ospf 1
+ router-id 1.1.1.1
+ mtu-ignore enable
+ maximum paths 32
+ nsf cisco
+ timers throttle lsa all 100000 600000 600000
+ timers lsa min-arrival 600000
+ redistribute connected
+ area 0
+  interface Loopback0
+   mtu-ignore enable
+  !
+  interface GigabitEthernet0/0/0/0
+   mtu-ignore enable
+   dead-interval 240
+  !
+ !
+!
+vrf v1
+ address-family ipv4 unicast
+  import route-target
+   100:1
+  !
+  export route-target
+   100:1
+  !
+ !
+!
+vrf v2
+ address-family ipv4 unicast
+  import route-target
+   100:2
+  !
+  export route-target
+   100:2
+  !
+ !
+!
+commit
+end
+
+R2
+
+conf
+
+logging console disable
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$h4Cl$1Rzofsap8QdnktOEXUgLJ.
+!
+arp vrf default 10.10.10.1 5246.f6cb.9d33 ARPA
+interface Loopback0
+ ipv4 address 2.2.2.2 255.255.255.0
+ no shut
+!
+interface Loopback2
+ ipv4 address 4.4.4.4 255.255.255.255
+ no shut
+!
+interface tunnel-ip21
+ ipv4 address 100.100.100.2 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel destination 3.3.3.3
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.10.10.2 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 12.0.0.1 255.255.255.0
+ no shut
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router static
+ address-family ipv4 unicast
+  3.3.3.3/32 10.10.10.1
+ !
+!
+router ospf 1
+ router-id 2.2.2.2
+ mtu-ignore enable
+ dead-interval 240
+ maximum paths 32
+ timers throttle lsa all 100000 600000 600000
+ timers lsa min-arrival 600000
+ redistribute connected
+ area 0
+  interface Loopback0
+  !
+  interface GigabitEthernet0/0/0/0
+   neighbor 11.0.0.1
+   mtu-ignore enable
+   dead-interval 240
+  !
+ !
+!
+commit
+end
+
+
+********************
+Braven ospf gre
+********************
+R1
+
+conf
+logging console debugging
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$WigY$pqPQC.93QAYEirQ0sGWLh.
+!
+interface Loopback0
+ ipv4 address 1.1.1.1 255.255.255.0
+!
+interface Loopback2
+ ipv4 address 3.3.3.3 255.255.255.0
+!
+interface tunnel-ip12
+ ipv4 address 100.100.100.1 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel destination 4.4.4.4
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 11.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 3.3.3.3
+ area 0
+  interface Loopback2
+  !
+  interface GigabitEthernet0/0/0/0
+  !
+ !
+!
+router ospf 2
+ router-id 1.1.1.1
+ area 0
+  interface Loopback0
+  !
+  interface tunnel-ip12
+  !
+ !
+!
+commit
+end
+
+R2
+
+conf
+
+logging console debugging
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$h4Cl$1Rzofsap8QdnktOEXUgLJ.
+!
+interface Loopback0
+ ipv4 address 2.2.2.2 255.255.255.0
+!
+interface Loopback2
+ ipv4 address 4.4.4.4 255.255.255.255
+!
+interface tunnel-ip21
+ ipv4 address 100.100.100.2 255.255.255.0
+ tunnel mode gre ipv4
+ tunnel source Loopback2
+ tunnel destination 3.3.3.3
+!
+interface MgmtEth0/RP0/CPU0/0
+ shutdown
+!
+interface GigabitEthernet0/0/0/0
+ ipv4 address 10.0.0.2 255.255.255.0
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 12.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/0/0/2
+ shutdown
+!
+router ospf 1
+ router-id 4.4.4.4
+ area 0
+  interface Loopback2
+  !
+  interface GigabitEthernet0/0/0/0
+  !
+ !
+!
+router ospf 2
+ router-id 2.2.2.2
+ area 0
+  interface Loopback0
+  !
+  interface tunnel-ip21
+  !
+ !
+!
+commit
+end
+
+
+*******************
+FIB_MGR process blocked
+*******************
+
+
+*******************
+ASR9k exr BOOT
+*******************
+
+Info On router access:
+9004-top (APE)
+telnet 10.85.82.41 2008 <— telnet info router 
+https://10.85.86.18/login/login
+PS 5.2.51.10 19/20
+host asr9k-skyhammer-rp1 {
+hardware ethernet 70:E4:22:0B:21:50;
+fixed-address 5.9.3.108;
+option host-name "asr9k-skyhammer-rp1";
+if exists user-class and option user-class = "iPXE" {
+# Image request, so give ISO image
+filename "http://5.9.3.1/asr9k-skyhammer-rp1/asr9k-mini-x64.iso"; <— Image name for pxe server
+} else {
+filename "ipxe.efi";
+}
+}
+
+On pxe (ott-pxe1 server)
+
+ott-pxe1: /var/www/html/
+ott-pxe1:133> ls -li
+total 0
+753769 lrwxrwxrwx 1 yanwan3 eng 36 Feb 14 10:17 asr9k-mini-x64.iso -> /tftpboot/yanwan3/asr9k-full-x64.iso
+ott-pxe1:134> pwd
+/var/www/html/asr9k-skyhammer-rp1
+
+On Router 
+admin
+run /opt/cisco/calvados/sbin/reimage_chassis_asr9k
+
+
+
+
+
+Some asr9k spp commands
+
+sh lpts pifib hardware entry stat loc <LC>
+
+FIB NOTES
+this file contains all the mapping of prime to code drop counter type : /platforms/viking/lc/ucode/ezchip/stats_reason_tomahawk.pl
+
+ASR9k Fib commands
+
+show cef <prefix> hardware ingress/egress detail location <LC>
+show cef platform trace all all location <LC>
+show install active summary   
+show logging
+show cef ipv4 trace location <LC>
+show cef ipv6 trace location <LC>
+show cef mpls trace location <LC>
+show cef trace location <LC>
+Show cef af-ea ipv6 trace event loc <LC>
+Show cef af-ea ipv4 trace event loc <LC>
+
+
+prime command to show data struct entry in table : sh contr np struct te-nh-ADJ detail all-entries n
+sh controllers np struct NHINDEX search key 0x1 all location 0/1/CPU0  
+
+
+capture put using npdbg
+[xr-vm_node0_1_CPU0:~]$npdbg
+
+
+
+FIREX: /auto/firex/bin/precommit –d DDTS
+XR_COMMIT:  /auto/iox/bin/xr_commit -d CSCve67710
+FIB UT:
+   229  10:38   setenv ENXR_IGNORE_BASHRC y
+   233  13:42   echo $ENXR_IGNORE_BASHRC
+   234  13:42   python platforms/enxr/gcplane/npuinfra/fib_pd_ut.py
+
+Calvados clean
+
+calvados/build/make-lib/xrmk cleanall
+
+
+XVNC gvim set DISPLAY
+
+setenv DISPLAY :1
+
+
+For VXSIM server
+
+ott-sw-ls-004.cisco.com:86> setenv DISPLAY ott-lb-010:1
+ott-sw-ls-004.cisco.com:87> xclock
+Warning: Missing charsets in String to FontSet conversion
+ott-sw-ls-004.cisco.com:88> sim clean
+ott-sw-ls-004.cisco.com:89> xterm
+ott-sw-ls-004.cisco.com:90> sim clean
+ott-sw-ls-004.cisco.com:91> sim 
+
+Diff between multiple lineups
+
+acme diff -comp platforms/common/gcplane/lc/feature/pbr -from_ver xr-dev.lu -to_ver ws
+
+Here ws means the current line up workspace and -from_ver compares with the other lineup
