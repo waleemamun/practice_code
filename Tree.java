@@ -1,8 +1,8 @@
+import java.awt.image.AreaAveragingScaleFilter;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class Tree {
-
     public TreeNode root;
     public Tree (int rootVal){
         root = new TreeNode(rootVal);
@@ -52,6 +52,24 @@ public class Tree {
         node.leftChild = createBinaryTreeRecurse(low, mid-1, arr);
         node.rightChild = createBinaryTreeRecurse(mid+1, high, arr);
         return node;
+    }
+    // return Integer.MIN_VALUE if not balanced
+    public int checkBalanced (TreeNode node) {
+
+        if (node == null) {
+            return 0;
+        }
+        int leftHeight = checkBalanced(node.leftChild);
+        if (leftHeight == Integer.MIN_VALUE)
+            return Integer.MIN_VALUE;
+        int rightHeight = checkBalanced(node.rightChild);
+        if (rightHeight == Integer.MIN_VALUE)
+            return Integer.MIN_VALUE;
+
+        if (Math.abs(leftHeight-rightHeight) > 1) {
+            return Integer.MIN_VALUE;
+        } else
+            return (1 + Math.max(leftHeight,rightHeight));
     }
 
     public void inOrderTraversal (TreeNode node) {
@@ -105,6 +123,86 @@ public class Tree {
 
     }
 
+    public int validateBST (TreeNode node, int leftBoundary , int rightBoundary) {
+        if (node == null)
+            return 1;
+        if (node.data <= rightBoundary && node.data > leftBoundary) {
+
+            return (validateBST(node.leftChild, leftBoundary, node.data) &
+                          validateBST(node.rightChild, node.data, rightBoundary));
+        } else
+            return 0;
+
+    }
+
+    // This is an utility method to weave two list first and second in such a way
+    // that the order of the element in each list remains the same
+    // for example to weave list (1,2) and (3,4) we get the following output observe the order remains the same
+    // 1 2 3 4
+    // 1 3 2 4
+    // 1 3 4 2
+    // 3 1 2 4
+    // 3 1 4 2
+    // 3 4 1 2
+
+
+    public static void weaveList (LinkedList<Integer> first,
+                           LinkedList<Integer> second,
+                           LinkedList<Integer> prefix,
+                           ArrayList<LinkedList<Integer>> results) {
+
+        // if one of the list is empty we merge the list with the clone of prefix list
+        // here the clone is use so that we only work on the clone prefix for this call and the original prefix does not
+        // get modified in the subsequent recursive call
+        if (first.size() == 0 || second.size() == 0) {
+            LinkedList<Integer> mergeList = (LinkedList<Integer>) prefix.clone();
+            mergeList.addAll(first);
+            mergeList.addAll(second);
+            results.add(mergeList);
+            return;
+
+        }
+
+        // remove one entry from the first list and add it to the prefix to call the weaveList
+        // after that we restore both prefix and first for the subsequent recursive call
+        int headFirst = first.removeFirst();
+        prefix.addLast(headFirst);
+        weaveList(first, second, prefix, results);
+        prefix.removeLast();
+        first.addFirst(headFirst);
+
+        // remove one entry from the second list and add it to the prefix to call the weaveList
+        // after that we restore both prefix and second for the subsequent recursive call
+        int headSecond = second.removeFirst();
+        prefix.addLast(headSecond);
+        weaveList(first, second, prefix, results);
+        prefix.removeLast();
+        second.addFirst(headSecond);
+
+    }
+    // If this tree contains the tree tr then the pre order traversal
+    // for this tree will contain the preorder traversal of tree tr,
+    // so the string representing the trversal for tree tr would be a substring of this tree's traversal
+    public boolean contains(Tree tr) {
+        StringBuilder str1 = new StringBuilder();
+        StringBuilder str2 = new StringBuilder();
+
+        preOrderTraversalString(getRoot(),str1);
+        preOrderTraversalString(tr.getRoot(),str2);
+
+        return str1.toString().indexOf(str2.toString()) != -1;
+    }
+    public void preOrderTraversalString(TreeNode node, StringBuilder str){
+        if (node == null) {
+            str.append("X ");
+        } else {
+            str.append(node.data + " ");
+            preOrderTraversalString(node.leftChild,str);
+            preOrderTraversalString(node.rightChild,str);
+
+        }
+
+    }
     public TreeNode inOrderPredecessorWithoutParent (TreeNode node) {
         if (node.leftChild != null) {
             return searchBiggest(node.leftChild);
@@ -212,7 +310,7 @@ public class Tree {
         if (aOnLeft != bOnleft)
             return ancestor;
         return aOnLeft ? commonAncestor(ancestor.leftChild, nodeAData, nodeBData) :
-                         commonAncestor(ancestor.rightChild, nodeAData, nodeBData);
+                commonAncestor(ancestor.rightChild, nodeAData, nodeBData);
 
 
     }
@@ -238,10 +336,10 @@ public class Tree {
         }
     }
     /*
-    *  This will give the common ancestor of two nodes using the getPathFromNode method
-    *  If we can get the path from root to nodeA and nodeB then the point where the path diverges
-    *  is the first common ancestor
-    * */
+     *  This will give the common ancestor of two nodes using the getPathFromNode method
+     *  If we can get the path from root to nodeA and nodeB then the point where the path diverges
+     *  is the first common ancestor
+     * */
     public TreeNode getCommonAncestor(TreeNode nodeA, TreeNode nodeB) {
 
         if (nodeA == null || nodeB == null)
@@ -267,4 +365,5 @@ public class Tree {
         }
         return ancestor;
     }
+
 }
