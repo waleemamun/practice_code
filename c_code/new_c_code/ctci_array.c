@@ -449,31 +449,13 @@ int is_anagram (char* str1, char *str2) {
 	lower(str2);
 	printf ("str1 %s  str2 %s",str1,str2);
 	freq1 = freq_set(str1);
-	//printf("0x%x\n",freq1);
-
 	freq2 = freq_set(str2);
-	//printf("0x%x\n",freq2);
 	if (freq1 == freq2)
 		return 1;
 	else
 		return 0;
 }
-
-void hanoi_move (int n, int peg1, int peg2, int peg3) {
-	static int count = 0;
-	if(n > 0) {
-		// move n-1 item to peg2 from peg1 via peg3
-		hanoi_move(n-1, peg1, peg3, peg2);
-		count++;
-		// move the nth entry from peg1 to peg3
-		printf (" Move %d: move disk %d from peg (%d) to peg (%d)\n",count,n,peg1,peg3);
-		// move the n-1 from peg2 to peg3 via peg1
-		hanoi_move(n-1, peg2,peg1,peg3);
-	}
-}
 int index_arr[128];
-
-
 int lengthOfLongestSubstring(char* s) {
 	int max_len = 0;
 	int i = 0, j = 0;

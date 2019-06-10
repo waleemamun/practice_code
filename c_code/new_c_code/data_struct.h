@@ -73,8 +73,4 @@ int is_anagram (char* str1, char *str2);
 struct ListNode* addTwoNumbers(struct ListNode* l1, struct ListNode* l2);
 struct ListNode* create_from_array (int arr [],int size);
 int lengthOfLongestSubstring(char* s);
-void hanoi_move (int n, int peg1, int peg2, int peg3);
-void
-max_diff(int arr[], int size);
-
 #endif /* DATA_STRUCT_H_ */

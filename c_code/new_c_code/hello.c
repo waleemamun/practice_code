@@ -15,8 +15,6 @@ int unsort_arr[MAX_ENTRY]  = {10,5,9,2,4,6,7,1,3,8};
 int un_heap_arr[MAX_ENTRY+1] = {-1,16,4,10,14,7,9,3,2,8,1};
 List *head_ptr;
 Tree *root_ptr;
-
-
 int freq_count[11]; // for 0...11
 int lin_unsort_arr[MAX_ENTRY+1]  = {-1,9,5,9,7,4,6,3,1,3,3};
 int lin_sort_arr[MAX_ENTRY+1] = {-1};
@@ -375,12 +373,11 @@ int main (){
 		L1 = create_from_array (arr1,3);
 		L2 = create_from_array (arr2,5);
         sum = addTwoNumbers(L2,L1);
-		printf("Aha worked!\n");
+        printf("Hello!\n");
 		char str[100];
-		strcpy(str,"abcedcda");
-		int len = lengthOfLongestSubstring(str);
+		strcpy(str,"abdcdclmnop");
+        int len = lengthOfLongestSubstring(str);
         printf(" len = %d \n",len);
-
 
 	}
 
