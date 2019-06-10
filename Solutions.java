@@ -1,11 +1,12 @@
 import java.util.ArrayList;
 
 public class Solutions {
-
+    MyLinkList node;
+    boolean result;
     int grid [][]  = {{0, 0, 0, 0},
-                      {0, 1, 0, 1},
-                      {0, 1, 0, 1},
-                      {0, 0, 0, 2}};
+            {0, 1, 0, 1},
+            {0, 1, 0, 1},
+            {0, 0, 0, 2}};
     public class Path{
         int i;
         int j;
@@ -13,6 +14,34 @@ public class Solutions {
             this.i = i;
             this.j= j;
         }
+    }
+
+    public Solutions (MyLinkList ls,boolean res){
+        node = ls;
+        result = res;
+    }
+    public boolean isPalindrom(MyLinkList head){
+        int len = head.size();
+        Solutions sl = isPalindromeRecurse(head, len);
+        return sl.result;
+    }
+    Solutions isPalindromeRecurse(MyLinkList head, int length) {
+        if (length == 0 && head == null) { // even case
+            new Solutions(head, true);
+        }
+        else if ( length == 1 ){
+            new Solutions(head.next, true);
+        }
+
+        Solutions res = isPalindromeRecurse(head.next, length -2);
+
+        if(res.node == null || !res.result) {
+            return res;
+        }
+        res.result = (head.val == res.node.val);
+        res.node =res.node.next;
+        return res;
+
     }
     public void towerOfHanoi(int nDisk, int srcPeg, int destPeg, int midPeg) {
 
@@ -58,6 +87,7 @@ public class Solutions {
         }
         return fibonacci(n-1) + fibonacci(n-2);
     }
+    
     public String convert(String s, int numRows) {
 
         StringBuilder [] sbArray = new StringBuilder[numRows];
@@ -98,4 +128,11 @@ public class Solutions {
 
         return output.toString();
     }
+
+
+
+
+
+
+
 }

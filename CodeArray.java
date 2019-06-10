@@ -56,7 +56,21 @@ public class CodeArray {
         }
         return elem;
     }
-
+    // We maintain a hash table for all the entries in the array Hash key is the
+    // value of array position i and value is array index i. We walk through the array
+    // to find target - nums[i] and look up in the hash table for key nums[i] if the entry is there
+    // then we found our desired entries and if not we put the value in hash table and move forward.
+    public int[] twoSum3(int[] nums, int target) {
+        HashMap<Integer, Integer> map = new HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int complement = target - nums[i];
+            if (map.containsKey(complement)) {
+                return new int[] { map.get(complement), i };
+            }
+            map.put(nums[i], i);
+        }
+        throw new IllegalArgumentException("No two sum solution");
+    }
 
     public int lengthOfLongestSubstringV2(String s) {
         Freuency [] freuency = new Freuency[128];
@@ -108,6 +122,7 @@ public class CodeArray {
         int max_len = 0;
         int i = 0;
         for (i = 0; j<n; j++) {
+            // as we use hashmap we need this check for null value check
             if (map.containsKey(s.charAt(j))) {
                 i = Math.max(map.get(s.charAt(j)),i);
             }
@@ -119,6 +134,14 @@ public class CodeArray {
     }
 
     // this is the best solutions
+    // when solving string problem of this type we use a sliding window technique
+    // we start with a minimal sliding window and keep increasing it
+    // ie: (abcdefa)ghk <- a is detected twice now abcdef(aghk).
+    // in this case we use a integer array as hashmap for 255 chars
+    // i denotes left side and j denotes right side of the sliding window on each pass
+    // we keep i in its position and increase j until we found a repeated char
+    // we update i to be the max of the hash value and i itself
+    // in the above example at 2nd a i would be max(0,1)/
     public int lengthOfLongestSubstring(String s) {
         int [] index = new int [128];
         int n = s.length();
@@ -184,6 +207,14 @@ public class CodeArray {
         }
      throw new IllegalArgumentException();
     }
+    // say we have tow arrays A and B, we have to partition them in such a way that
+    // A[0].. A[i-1] | A[i]... A[m] and B[0]...B[j-1] | B[j]....B[n]
+    //   leftA       |   right A         left B       |   right B
+    // also  leftA.length + leftB.length == rightA.length + rightB.length or (rightA.length + rightB.length+1)
+    // so i+j = m-i + n-j +1
+    // or i+j = (m+n+1)/2
+    // so j = (m+n+1)/2 - i; in the code i = partiionX and j = partitionY
+    // the we binary search the smaller array to find a partion that will satisfy that pariton is equal size on both side
     public double findMedianSortedArrays(int input1[], int input2[]) {
         //if input1 length is greater than switch them so that input1 is smaller than input2.
         if (input1.length > input2.length) {
@@ -225,6 +256,8 @@ public class CodeArray {
         //Only we we can come here is if input arrays were not sorted. Throw in that scenario.
         throw new IllegalArgumentException();
     }
+    // from each position i and i + 1 we have to get the palindrome len considering i or i+1 as middle
+    // get the max len palindrome and then if its getter than prev max len update the maxlen and the indices
     public String longestPalindrome(String s) {
         int maxLen = Integer.MIN_VALUE;
         int start = 0;
