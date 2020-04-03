@@ -263,8 +263,8 @@ int main (){
 	case LIST_TEST:
 	{
 		printf("List test\n");
-		#define ARR_SZ 10
-		int arr[ARR_SZ] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+		#define ARR_SZ 2
+		int arr[ARR_SZ] = {1,2};
 
 	    for (int i = 0 ; i < ARR_SZ; i++){
 			//insert_at_head(&head_ptr,data);
@@ -272,7 +272,7 @@ int main (){
 			insert_at_head(&head_ptr,arr[i]);
 		}
 		print_list(&head_ptr);
-		delete_duplicate(&head_ptr);
+		delete_middle_node(&head_ptr);
 		print_list(&head_ptr);
 		/*printf ("Search ?\n");
 		data = 5;

@@ -74,4 +74,5 @@ struct ListNode* addTwoNumbers(struct ListNode* l1, struct ListNode* l2);
 struct ListNode* create_from_array (int arr [],int size);
 int lengthOfLongestSubstring(char* s);
 void delete_duplicate (List **head);
+void delete_middle_node (List **head);
 #endif /* DATA_STRUCT_H_ */

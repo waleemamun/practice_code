@@ -465,3 +465,29 @@ void delete_duplicate (List **head) {
 
 }
 
+void delete_middle_node (List **head) {
+	List *fast = *head;
+	List *slow = *head;
+	List *prev = NULL;
+
+	if (fast == NULL) {
+		printf("Null list\n");
+		return;
+	}
+	if (!fast->next->next){
+		*head = fast->next;
+		free(slow);
+		printf("Only two nodes \n");
+		return;
+	}
+	fast = fast->next;
+	while (fast && fast->next) {
+		prev = slow;
+		slow = slow->next;
+		fast = fast->next->next;
+	}
+	prev->next = slow->next;
+	free(slow);
+}
+
+
