@@ -441,4 +441,27 @@ struct ListNode* addTwoNumbers(struct ListNode* l1, struct ListNode* l2) {
 }
 
 int list_freq[128];
+void delete_duplicate (List **head) {
+	List *start = *head;
+	List *prev = start;
+	if (head == NULL) {
+		printf("NULL List passed!");
+		return;
+	}
+	list_freq[start->data] = 1;
+	start = start->next;
+	while (start) {
+		if (list_freq[start->data] == 0){
+			list_freq[start->data]++;
+			prev = prev->next;
+			start = start->next;
+		} else {
+			prev->next = start->next;
+			free(start);
+			start = prev->next;
+		}
+		
+	}
+
+}
 

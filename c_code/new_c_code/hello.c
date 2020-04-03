@@ -257,18 +257,22 @@ int main (){
 #define NEW_ARR_TEST 6
 	uint32_t data,opt;
 	List *elem;
-	opt = NEW_ARR_TEST;
+	opt = LIST_TEST;
 	switch (opt) {
 
 	case LIST_TEST:
 	{
 		printf("List test\n");
+		#define ARR_SZ 10
+		int arr[ARR_SZ] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-	    for (int i = 1 ; i<=2; i++){
+	    for (int i = 0 ; i < ARR_SZ; i++){
 			//insert_at_head(&head_ptr,data);
-	    	scanf("%u",&data);
-			insert_at_head(&head_ptr,data);
+	    	
+			insert_at_head(&head_ptr,arr[i]);
 		}
+		print_list(&head_ptr);
+		delete_duplicate(&head_ptr);
 		print_list(&head_ptr);
 		/*printf ("Search ?\n");
 		data = 5;
@@ -281,11 +285,7 @@ int main (){
 		print_list(&head_ptr);
 		printf("Exiting test code\n");*/
 
-        if (list_palindrome(&head_ptr)) {
-        	printf("Yes\n");
-        } else {
-        	printf("NO\n");
-        }
+
 
 		break;
 	}
@@ -365,7 +365,7 @@ int main (){
 	}
 	case NEW_ARR_TEST:
 	{
-		struct ListNode *L1 = NULL;
+		/*struct ListNode *L1 = NULL;
 		struct ListNode *L2 = NULL;
 		struct ListNode *sum = NULL;
 		int arr1 [5] = {1,2,3};
@@ -377,7 +377,7 @@ int main (){
 		char str[100];
 		strcpy(str,"abdcdclmnop");
         int len = lengthOfLongestSubstring(str);
-        printf(" len = %d \n",len);
+        printf(" Length = %d \n",len);*/
 
 	}
 
